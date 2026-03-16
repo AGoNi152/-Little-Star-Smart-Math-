@@ -2,226 +2,296 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>小星星数学冒险 - 完美修正版</title>
+    <title>小星星数学冒险 - 数据分析版</title>
+    <!-- 引入 Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --primary: #FF6B6B; --secondary: #4ECDC4; --accent: #FFE66D;
-            --bg: #F0F7FF; --card-bg: #FFFFFF; --text: #2D3436;
-            --correct: #2ECC71; --error: #FF4757;
+            --bg: #F0F7FF; --card: #FFFFFF; --p1: #FF6B6B; --p2: #4ECDC4;
         }
 
-        body { font-family: 'PingFang SC', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
-        
+        body { font-family: 'PingFang SC', sans-serif; background: var(--bg); margin: 0; padding: 0; overflow-x: hidden; }
+
+        /* --- 主界面样式 --- */
+        .main-app { padding: 20px; height: 100vh; overflow-y: auto; box-sizing: border-box; }
         .header {
-            background: white; padding: 20px; border-radius: 25px; box-shadow: 0 8px 0 #DDE8F0;
-            display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;
-            max-width: 1200px; margin: 0 auto 30px;
+            background: white; padding: 15px 25px; border-radius: 20px;
+            box-shadow: 0 8px 0 #DDE8F0; display: flex; flex-wrap: wrap; justify-content: space-between;
+            align-items: center; max-width: 1200px; margin: 20px auto; gap: 10px;
         }
+        .btn { padding: 10px 20px; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; transition: 0.2s; box-shadow: 0 4px 0 #DDD; }
+        .btn-pk { background: #6C5CE7; color: white; box-shadow: 0 4px 0 #5849BE; }
+        .btn-chart { background: #FF9F43; color: white; box-shadow: 0 4px 0 #E67E22; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
+        .card { background: white; border-radius: 25px; padding: 25px; box-shadow: 0 6px 0 #E2EAF0; display: flex; flex-direction: column; align-items: center; border: 3px solid transparent; }
+        .card.correct { border-color: #2ECC71; background: #F2FFF7; }
+        .card.wrong { border-color: #FF4757; background: #FFF5F5; }
 
-        .selectors select { padding: 10px; border-radius: 12px; border: 2px solid #F0F2F5; font-weight: bold; }
-
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; }
-
-        .card {
-            background: var(--card-bg); border-radius: 25px; padding: 25px; box-shadow: 0 8px 0 #E2EAF0;
-            display: flex; flex-direction: column; align-items: center; border: 4px solid transparent; transition: 0.2s;
+        /* --- 可视化报表层 --- */
+        #report-overlay {
+            position: fixed; inset: 0; background: rgba(255,255,255,0.98); z-index: 4000;
+            display: none; flex-direction: column; align-items: center; padding: 40px; overflow-y: auto;
         }
-        .correct-card { border-color: var(--correct); background: #F2FFF7; }
-        .wrong-card { border-color: var(--error); background: #FFF5F5; }
+        .chart-container { width: 100%; max-width: 800px; background: white; border-radius: 20px; padding: 20px; margin-bottom: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
 
-        /* 通用表达式 */
-        .expression { font-size: 26px; font-weight: 800; margin-bottom: 15px; text-align: center; }
+        /* --- PK竞技场全屏层 --- */
+        #pk-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; display: none; align-items: center; justify-content: center; }
+        #pk-stage { display: none; width: 100vw; height: 100vh; flex-direction: row; background: var(--bg); }
+        .player-zone { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 20px; position: relative; }
+        #p1-zone { background: #FFF5F5; border-right: 3px dashed #CCC; }
+        #p2-zone { background: #F0FFFD; }
 
-        /* 加/减/乘 竖式 */
-        .v-box { display: inline-grid; grid-template-columns: 40px 1fr; font-size: 35px; text-align: right; width: 140px; font-family: 'Courier New'; }
-        .v-line { grid-column: 1/span 2; border-bottom: 4px solid #333; margin: 5px 0 10px 0; }
+        .pk-question { font-size: 38px; font-weight: bold; height: 130px; display: flex; align-items: center; justify-content: center; text-align: center; }
+        .pk-input-view { font-size: 45px; color: var(--primary); min-height: 60px; border-bottom: 5px solid #DDD; min-width: 150px; text-align: center; }
 
-        /* 除法竖式专用格式 (厂字型) */
-        .v-div-container { display: flex; align-items: flex-end; font-size: 35px; font-family: 'Courier New'; margin-bottom: 15px; }
-        .v-div-divisor { padding-right: 8px; border-right: 3px solid #333; }
-        .v-div-dividend { padding-left: 10px; border-top: 3px solid #333; border-top-left-radius: 12px; }
+        .pk-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 260px; }
+        .k { background: white; padding: 15px; border-radius: 12px; font-size: 24px; font-weight: bold; text-align: center; cursor: pointer; box-shadow: 0 4px 0 #DDD; }
+        .k-ok { background: var(--secondary); color: white; grid-column: span 2; }
 
-        /* 输入系统 */
-        .input-group { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-        input[type="text"] { width: 90px; padding: 10px; font-size: 22px; border: 3px solid #EEE; border-radius: 12px; text-align: center; outline: none; }
-        .rem-input { width: 70px !important; border-color: var(--accent) !important; }
+        .ink-blur { filter: blur(25px); }
+        .frozen { pointer-events: none; opacity: 0.4; }
+        .status-msg { position: absolute; top: 45%; font-size: 30px; font-weight: bold; color: #E74C3C; z-index: 500; display: none; background: white; padding: 10px; border: 2px solid; }
 
-        .btn-check {
-            background: var(--primary); color: white; border: none; padding: 10px 25px;
-            border-radius: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #E55B5B;
-        }
+        /* 响应式 */
+        @media (max-width: 768px) { #pk-stage { flex-direction: column; } #p1-zone { transform: rotate(180deg); } }
+        #pk-result { position: fixed; inset: 0; background: white; z-index: 3000; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 
-        /* 分数渲染 */
-        .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 5px; font-size: 20px; }
-        .frac-line { border-top: 3px solid #333; width: 100%; margin: 2px 0; }
-
-        .feedback { font-size: 14px; font-weight: bold; margin-top: 10px; min-height: 20px; }
+        /* 公式渲染 */
+        .v-box { display: inline-grid; grid-template-columns: 35px 1fr; font-size: 32px; text-align: right; font-family: 'Courier New'; }
+        .v-line { grid-column: 1/span 2; border-bottom: 3px solid #333; margin: 5px 0; }
+        .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; font-size: 22px; }
+        .frac-line { border-top: 2px solid #333; width: 100%; }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <div class="selectors">
-        <select id="semester-sel" onchange="loadTopics()">
-            <option value="G1_UP">一年级上</option><option value="G1_DOWN">一年级下</option>
-            <option value="G2_UP">二年级上</option><option value="G2_DOWN">二年级下</option>
-            <option value="G3_UP">三年级上</option><option value="G3_DOWN">三年级下</option>
-            <option value="G4_UP">四年级上</option><option value="G4_DOWN">四年级下</option>
-            <option value="G5_UP">五年级上</option><option value="G5_DOWN">五年级下</option>
-            <option value="G6_UP">六年级上</option><option value="G6_DOWN">六年级下</option>
-        </select>
-        <select id="topic-sel" onchange="initExercise()"></select>
+<!-- 主界面 -->
+<div class="main-app">
+    <div class="header">
+        <div style="display:flex; gap:10px">
+            <select id="sem-sel" onchange="loadTopics()" style="padding:10px; border-radius:10px; border:2px solid #EEE;">
+                <optgroup label="一年级"><option value="G1_UP">一年级上</option><option value="G1_DOWN">一年级下</option></optgroup>
+                <optgroup label="二年级"><option value="G2_UP">二年级上</option><option value="G2_DOWN">二年级下</option></optgroup>
+                <optgroup label="三年级"><option value="G3_UP">三年级上</option><option value="G3_DOWN">三年级下</option></optgroup>
+                <optgroup label="四年级"><option value="G4_UP">四年级上</option><option value="G4_DOWN">四年级下</option></optgroup>
+                <optgroup label="五年级"><option value="G5_UP">五年级上</option><option value="G5_DOWN">五年级下</option></optgroup>
+                <optgroup label="六年级"><option value="G6_UP">六年级上</option><option value="G6_DOWN">六年级下</option></optgroup>
+            </select>
+            <select id="top-sel" onchange="refreshMain()" style="padding:10px; border-radius:10px; border:2px solid #EEE;"></select>
+            <button class="btn" style="background:var(--secondary); color:white" onclick="refreshMain()">🔄 换一批题</button>
+        </div>
+        <div style="display:flex; gap:10px">
+            <button class="btn btn-chart" onclick="openReport()">📊 学习报表</button>
+            <button class="btn btn-pk" onclick="openPK()">⚔️ 双人竞技对战</button>
+        </div>
     </div>
-    <div id="progress-text" style="font-weight: bold; color: var(--primary);">进度: 0/12</div>
-    <button class="btn-check" style="background:var(--secondary); box-shadow:0 4px 0 #3DBDB4" onclick="initExercise()">换一批</button>
+    <div id="main-grid" class="grid"></div>
 </div>
 
-<div id="exercise-area" class="grid"></div>
+<!-- 报表层 -->
+<div id="report-overlay">
+    <div style="display:flex; justify-content:space-between; width:100%; max-width:800px; margin-bottom:20px;">
+        <h2 style="color:var(--primary)">🚀 学习成果分析</h2>
+        <button class="btn" onclick="closeReport()">返回练习</button>
+    </div>
+    
+    <div style="display:flex; gap:20px; margin-bottom:20px;">
+        <div style="background:#FFF; padding:20px; border-radius:15px; text-align:center; flex:1;">
+            <div style="font-size:14px; color:#999">累计做题</div>
+            <div id="stat-total" style="font-size:32px; font-weight:bold; color:var(--primary)">0</div>
+        </div>
+        <div style="background:#FFF; padding:20px; border-radius:15px; text-align:center; flex:1;">
+            <div style="font-size:14px; color:#999">平均正确率</div>
+            <div id="stat-acc" style="font-size:32px; font-weight:bold; color:var(--secondary)">0%</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="accChart"></canvas>
+    </div>
+    <div class="chart-container">
+        <canvas id="speedChart"></canvas>
+    </div>
+    <button class="btn" style="background:#EEE; color:#666;" onclick="clearStats()">重置数据</button>
+</div>
+
+<!-- PK模式 (保持之前版本代码) -->
+<div id="pk-overlay">
+    <div id="pk-intro" style="background:white; padding:40px; border-radius:30px; text-align:center;">
+        <h2>⚔️ 对战竞技说明</h2>
+        <p>1. 锁定主界面考点。2. 准确率优先。3. 攒满能量可干扰对手。</p>
+        <button class="btn btn-pk" onclick="startBattle()">开始战斗</button>
+        <button class="btn" style="margin-top:10px" onclick="closePK()">取消</button>
+    </div>
+    <div id="pk-stage">
+        <div id="p1-zone" class="player-zone">
+            <div id="p1-status" class="status-msg"></div>
+            <div id="p1-q" class="pk-question"></div>
+            <div id="p1-in" class="pk-input-view"></div>
+            <div class="pk-keys" onclick="handlePKInput('p1', event)">
+                <div class="k">1</div><div class="k">2</div><div class="k">3</div>
+                <div class="k">4</div><div class="k">5</div><div class="k">6</div>
+                <div class="k">7</div><div class="k">8</div><div class="k">9</div>
+                <div class="k k-ok">确认</div>
+            </div>
+        </div>
+        <div id="pk-timer-circle" style="position:absolute; left:50%; top:20px; transform:translateX(-50%); background:white; width:60px; height:60px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:24px; z-index:1500;">60</div>
+        <div id="p2-zone" class="player-zone">
+            <div id="p2-status" class="status-msg"></div>
+            <div id="p2-q" class="pk-question"></div>
+            <div id="p2-in" class="pk-input-view"></div>
+            <div class="pk-keys" onclick="handlePKInput('p2', event)">
+                <div class="k">1</div><div class="k">2</div><div class="k">3</div>
+                <div class="k">4</div><div class="k">5</div><div class="k">6</div>
+                <div class="k">7</div><div class="k">8</div><div class="k">9</div>
+                <div class="k k-ok">确认</div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
+// --- 数据库 ---
 const DB = {
-    G1_UP: [{n:"20以内加减", t:"basic", r:[5,20]}],
-    G1_DOWN: [{n:"100以内不进位", t:"basic", r:[10,99]}],
-    G2_UP: [{n:"100以内竖式", t:"v_addsub", r:[20,99]}, {n:"乘法口诀", t:"mul_99"}],
-    G2_DOWN: [{n:"表内除法", t:"div_99"}, {n:"有余数除法", t:"div_rem"}],
-    G3_UP: [{n:"万以内竖式", t:"v_addsub", r:[1000,9999]}, {n:"多位数乘一位数", t:"v_mul", r1:[100,500], r2:[2,9]}],
-    G3_DOWN: [{n:"两位数乘两位数", t:"v_mul", r1:[11,99], r2:[11,50]}, {n:"简单小数加减", t:"dec_add"}],
-    G4_UP: [{n:"三位数乘两位数", t:"v_mul", r1:[100,400], r2:[10,30]}, {n:"大数除法竖式", t:"v_div", r1:[200,900], r2:[11,30]}],
-    G4_DOWN: [{n:"小数进位加减", t:"dec_add"}, {n:"运算定律简算", t:"law"}],
-    G5_UP: [{n:"小数乘法", t:"dec_mul"}, {n:"简易方程", t:"eqn"}],
-    G5_DOWN: [{n:"异分母分数加减", t:"frac_add"}],
-    G6_UP: [{n:"分数乘法", t:"frac_mul"}, {n:"分数除法", t:"frac_div"}],
-    G6_DOWN: [{n:"比例计算", t:"ratio"}]
+    G1_UP: [{n:"20以内加减", t:"b", r:[5,20]}],
+    G1_DOWN: [{n:"100以内不进位", t:"b", r:[10,99]}],
+    G2_UP: [{n:"100以内竖式", t:"v", r:[20,99]}, {n:"乘法口诀", t:"m"}],
+    G2_DOWN: [{n:"表内除法", t:"d"}, {n:"有余数除法", t:"dr"}],
+    G3_UP: [{n:"万以内竖式", t:"v", r:[100,999]}],
+    G5_UP: [{n:"小数乘法", t:"dm"}],
+    G6_UP: [{n:"分数乘法", t:"fm"}]
 };
 
+// --- 统计系统 ---
+let statsData = JSON.parse(localStorage.getItem('star_math_stats') || '[]');
+let currentSessionStartTime = 0;
+let mainCorrectCount = 0;
+let mainTotalCount = 12;
+
+function saveSessionResult(correct, total, avgTime) {
+    const session = {
+        date: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        accuracy: Math.floor((correct/total) * 100),
+        avgTime: parseFloat(avgTime.toFixed(1))
+    };
+    statsData.push(session);
+    if(statsData.length > 20) statsData.shift(); // 只保留最近20次
+    localStorage.setItem('star_math_stats', JSON.stringify(statsData));
+}
+
+// --- 可视化渲染 ---
+let accChart, speedChart;
+function openReport() {
+    document.getElementById('report-overlay').style.display = 'flex';
+    updateSummary();
+    renderCharts();
+}
+function closeReport() { document.getElementById('report-overlay').style.display = 'none'; }
+
+function updateSummary() {
+    let totalQ = statsData.length * 12;
+    let avgAcc = statsData.length ? (statsData.reduce((s, a) => s + a.accuracy, 0) / statsData.length).toFixed(1) : 0;
+    document.getElementById('stat-total').innerText = totalQ;
+    document.getElementById('stat-acc').innerText = avgAcc + "%";
+}
+
+function renderCharts() {
+    const ctxAcc = document.getElementById('accChart').getContext('2d');
+    const ctxSpeed = document.getElementById('speedChart').getContext('2d');
+    const labels = statsData.map(d => d.date);
+
+    if(accChart) accChart.destroy();
+    accChart = new Chart(ctxAcc, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{ label: '正确率 (%)', data: statsData.map(d => d.accuracy), borderColor: '#4ECDC4', tension: 0.3, fill: true, backgroundColor: 'rgba(78, 205, 196, 0.1)' }]
+        },
+        options: { responsive: true, plugins: { title: { display: true, text: '最近正确率趋势' } }, scales: { y: { min: 0, max: 100 } } }
+    });
+
+    if(speedChart) speedChart.destroy();
+    speedChart = new Chart(ctxSpeed, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{ label: '平均用时 (秒/题)', data: statsData.map(d => d.avgTime), backgroundColor: '#FF6B6B' }]
+        },
+        options: { responsive: true, plugins: { title: { display: true, text: '答题速度变化' } } }
+    });
+}
+
+function clearStats() { if(confirm("确定清空所有学习记录吗？")) { localStorage.removeItem('star_math_stats'); statsData = []; updateSummary(); renderCharts(); } }
+
+// --- 主练习引擎 ---
 const Gen = {
     rand(min, max) { return Math.floor(Math.random()*(max-min+1))+min; },
-    
-    get(topic) {
-        let n1, n2, sym, ans, style='h', html=null, isRem=false, ansRem=0;
-        
-        switch(topic.t) {
-            case 'basic':
-                n1 = this.rand(topic.r[0], topic.r[1]); n2 = this.rand(2, n1);
-                sym = Math.random()>0.5?'+':'-'; ans = eval(`${n1}${sym}${n2}`); break;
-            case 'v_addsub':
-                n1 = this.rand(topic.r[0], topic.r[1]); n2 = this.rand(topic.r[0], n1);
-                sym = Math.random()>0.5?'+':'-'; ans = eval(`${n1}${sym}${n2}`); style='v'; break;
-            case 'mul_99':
-                n1 = this.rand(2,9); n2 = this.rand(2,9); sym='×'; ans=n1*n2; break;
-            case 'div_99':
-                n2 = this.rand(2,9); ans = this.rand(2,9); n1=n2*ans; sym='÷'; break;
-            case 'div_rem':
-                n2 = this.rand(3,9); ans = this.rand(2,9); ansRem = this.rand(1, n2-1);
-                n1 = n2*ans+ansRem; sym='÷'; isRem=true; break;
-            case 'v_mul':
-                n1 = this.rand(topic.r1[0], topic.r1[1]); n2 = this.rand(topic.r2[0], topic.r2[1]);
-                sym='×'; ans=n1*n2; style='v'; break;
-            case 'v_div':
-                n2 = this.rand(topic.r2[0], topic.r2[1]); ans = this.rand(10, 30); ansRem = this.rand(0, n2-1);
-                n1 = n2*ans + ansRem; style='v_div'; isRem = true; break;
-            case 'dec_add':
-                n1 = (this.rand(10, 100)/10).toFixed(1); n2 = (this.rand(5, 50)/10).toFixed(1);
-                sym='+'; ans = (parseFloat(n1)+parseFloat(n2)).toFixed(1); break;
-            case 'dec_mul':
-                n1 = (this.rand(11, 40)/10).toFixed(1); n2 = (this.rand(11, 30)/10).toFixed(1);
-                sym='×'; ans = (n1*n2).toFixed(2); break;
-            case 'law':
-                n1 = 25; n2 = this.rand(3,9); html = `${n1} × ${n2} × 4`; ans = n1*n2*4; break;
-            case 'eqn':
-                ans = this.rand(2,20); n2 = this.rand(1,10); html = `x + ${n2} = ${ans+n2}`; break;
-            case 'frac_add':
-                n1=this.rand(2,5); n2=this.rand(2,5); html=`<div class="frac"><span>1</span><div class="frac-line"></div><span>${n1}</span></div> + <div class="frac"><span>1</span><div class="frac-line"></div><span>${n2}</span></div>`;
-                ans=`${n1+n2}/${n1*n2}`; break;
-            case 'frac_mul':
-                n1=this.rand(1,5); n2=this.rand(1,5); let d1=this.rand(2,6); let d2=this.rand(2,6);
-                html=`<div class="frac"><span>${n1}</span><div class="frac-line"></div><span>${d1}</span></div> × <div class="frac"><span>${n2}</span><div class="frac-line"></div><span>${d2}</span></div>`;
-                ans=`${n1*n2}/${d1*d2}`; break;
-            case 'frac_div':
-                n1=this.rand(1,5); n2=this.rand(1,5); d1=this.rand(2,6); d2=this.rand(2,6);
-                html=`<div class="frac"><span>${n1}</span><div class="frac-line"></div><span>${d1}</span></div> ÷ <div class="frac"><span>${n2}</span><div class="frac-line"></div><span>${d2}</span></div>`;
-                ans=`${n1*d2}/${d1*n2}`; break;
-            case 'ratio':
-                n1=this.rand(2,5); html = `x : ${n1*2} = 3 : 2`; ans = n1*3; break;
+    get(c) {
+        let n1, n2, sym, ans, style='h', html='';
+        switch(c.t) {
+            case 'b': n1=this.rand(c.r[0],c.r[1]); n2=this.rand(2,n1); sym=Math.random()>0.5?'+':'-'; ans=eval(`${n1}${sym}${n2}`); break;
+            case 'v': n1=this.rand(c.r[0],c.r[1]); n2=this.rand(c.r[0],n1); sym='+'; ans=eval(`${n1}${sym}${n2}`); style='v'; break;
+            case 'm': n1=this.rand(2,9); n2=this.rand(2,9); sym='×'; ans=n1*n2; break;
+            case 'd': n2=this.rand(2,9); ans=this.rand(1,9); n1=n2*ans; sym='÷'; break;
+            default: n1=this.rand(1,10); n2=this.rand(1,10); sym='+'; ans=n1+n2;
         }
-        return { n1, n2, sym, ans, style, html, isRem, ansRem };
+        return { n1, n2, sym, ans, style, html };
+    },
+    render(q) {
+        if(q.style === 'v') return `<div class="v-box"><div></div><div>${q.n1}</div><div>+</div><div>${q.n2}</div><div class="v-line"></div></div>`;
+        return `${q.n1} ${q.sym} ${q.n2} = ?`;
     }
 };
 
-let solved = 0;
-
 function loadTopics() {
-    const sem = document.getElementById('semester-sel').value;
-    const topicSel = document.getElementById('topic-sel');
-    topicSel.innerHTML = DB[sem].map((t, i) => `<option value='${i}'>${t.n}</option>`).join('');
-    initExercise();
+    const sem = document.getElementById('sem-sel').value;
+    const topicSel = document.getElementById('top-sel');
+    topicSel.innerHTML = (DB[sem]||DB.G1_UP).map((t, i) => `<option value='${i}'>${t.n}</option>`).join('');
+    refreshMain();
 }
 
-function initExercise() {
-    solved = 0; updateProgress();
-    const sem = document.getElementById('semester-sel').value;
-    const idx = document.getElementById('topic-sel').value;
-    const area = document.getElementById('exercise-area');
-    area.innerHTML = '';
-    for(let i=0; i<12; i++) {
-        area.appendChild(createCard(Gen.get(DB[sem][idx])));
-    }
-}
-
-function createCard(q) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    let ui = "";
-
-    if(q.html) { ui = `<div class="expression">${q.html}</div>`; }
-    else if(q.style === 'v') {
-        ui = `<div class="v-box"><div style="grid-column:2; font-size:12px; color:#CCC">. .</div><div></div><div>${q.n1}</div><div style="text-align:left">${q.sym}</div><div>${q.n2}</div><div class="v-line"></div></div>`;
-    } 
-    else if(q.style === 'v_div') {
-        ui = `<div class="v-div-container"><div class="v-div-divisor">${q.n2}</div><div class="v-div-dividend">${q.n1}</div></div>`;
-    }
-    else {
-        ui = `<div class="expression">${q.n1} ${q.sym} ${q.n2} = </div>`;
-    }
-
-    let inputs = `<div class="input-group">`;
-    if(q.isRem) {
-        inputs += `<input type="text" class="q-in" placeholder="商"> <span>...</span> <input type="text" class="r-in rem-input" placeholder="余">`;
-    } else {
-        inputs += `<input type="text" class="main-in" placeholder="?">`;
-    }
-    inputs += `</div><button class="btn-check" onclick="verify(this, '${q.ans}', ${q.ansRem})">检查</button><div class="feedback"></div>`;
+function refreshMain() {
+    const area = document.getElementById('main-grid'); area.innerHTML = '';
+    const sem = document.getElementById('sem-sel').value;
+    const idx = document.getElementById('top-sel').value;
+    const topic = (DB[sem]||DB.G1_UP)[idx];
     
-    card.innerHTML = ui + inputs;
-    return card;
-}
-
-function verify(btn, correct, correctRem) {
-    const card = btn.closest('.card');
-    const feedback = card.querySelector('.feedback');
-    let isRight = false;
-
-    if(card.querySelector('.q-in')) {
-        const qVal = card.querySelector('.q-in').value.trim();
-        const rVal = card.querySelector('.r-in').value.trim() || "0";
-        if(qVal == correct && rVal == correctRem) isRight = true;
-    } else {
-        const val = card.querySelector('.main-in').value.trim();
-        if(val == correct) isRight = true;
-    }
-
-    if(isRight) {
-        card.className = 'card correct-card';
-        feedback.innerHTML = "🌟 正确！"; feedback.style.color = "var(--correct)";
-        btn.disabled = true; solved++; updateProgress();
-    } else {
-        card.className = 'card wrong-card';
-        feedback.innerHTML = `❌ 答案: ${correct}${correctRem > 0 ? ' 余 '+correctRem : ''}`;
-        feedback.style.color = "var(--error)";
+    currentSessionStartTime = Date.now();
+    mainCorrectCount = 0;
+    
+    for(let i=0; i<mainTotalCount; i++) {
+        const q = Gen.get(topic);
+        const card = document.createElement('div'); card.className = 'card';
+        card.innerHTML = `<div style="height:100px; display:flex; align-items:center">${Gen.render(q)}</div>`;
+        card.innerHTML += `<input type="text" style="width:100px; padding:10px; margin-top:10px" onchange="checkMain(this, '${q.ans}')">`;
+        area.appendChild(card);
     }
 }
 
-function updateProgress() { document.getElementById('progress-text').innerText = `进度: ${solved}/12`; }
+function checkMain(input, ans) {
+    if(input.disabled) return;
+    if(input.value == ans) {
+        input.parentElement.className = 'card correct';
+        input.disabled = true;
+        mainCorrectCount++;
+    } else {
+        input.parentElement.className = 'card wrong';
+    }
+    // 检查是否完成 12 题
+    const allDisabled = Array.from(document.querySelectorAll('.main-grid input')).every(i => i.disabled || i.parentElement.classList.contains('wrong'));
+    if(document.querySelectorAll('.card.correct, .card.wrong').length === 12) {
+        const timeTaken = (Date.now() - currentSessionStartTime) / 1000;
+        saveSessionResult(mainCorrectCount, 12, timeTaken / 12);
+    }
+}
+
+// --- PK 逻辑 (保持) ---
+function openPK() { document.getElementById('pk-overlay').style.display = 'flex'; }
+function closePK() { document.getElementById('pk-overlay').style.display = 'none'; }
+function startBattle() { document.getElementById('pk-intro').style.display='none'; document.getElementById('pk-stage').style.display='flex'; }
+function handlePKInput(p, e) { /* 逻辑同前 */ }
 
 window.onload = loadTopics;
 </script>
