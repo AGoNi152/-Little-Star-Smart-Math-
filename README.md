@@ -1,6 +1,4 @@
-为你准备了一份既专业又美观的 `README.md` 文件模板。你可以直接将其复制并保存到你 GitHub 仓库的根目录中。
 
----
 
 # 🧮 小星星数学冒险 (Little Star Math Adventure)
 
