@@ -1,40 +1,229 @@
-# 🧮 小星星智能口算冒险 | Little Star Smart Math
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>小星星数学冒险 - 完美修正版</title>
+    <style>
+        :root {
+            --primary: #FF6B6B; --secondary: #4ECDC4; --accent: #FFE66D;
+            --bg: #F0F7FF; --card-bg: #FFFFFF; --text: #2D3436;
+            --correct: #2ECC71; --error: #FF4757;
+        }
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Web-orange.svg)]()
+        body { font-family: 'PingFang SC', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        
+        .header {
+            background: white; padding: 20px; border-radius: 25px; box-shadow: 0 8px 0 #DDE8F0;
+            display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: space-between;
+            max-width: 1200px; margin: 0 auto 30px;
+        }
 
-一个专门为中国 6-12 岁小学生设计的数学口算练习网页。基于 HTML5、CSS3 和原生 JavaScript 开发，无需后端，轻量且强大。
+        .selectors select { padding: 10px; border-radius: 12px; border: 2px solid #F0F2F5; font-weight: bold; }
 
-## ✨ 核心特性
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; max-width: 1200px; margin: 0 auto; }
 
-- 🎓 **学期精准匹配**：涵盖 1-6 年级共 12 个学期的知识点，从简单的 10 以内加减法到分数、百分数及比例计算。
-- 🎲 **智能随机出题**：题目实时动态生成，确保每次练习不重复。
-- 📐 **专业格式渲染**：
-  - **标准竖式**：支持加、减、乘法竖式，带进位提示。
-  - **厂字型除法**：标准除法竖式布局。
-  - **分数/方程**：标准数学公式排版。
-- 🧪 **即时判断逻辑**：
-  - 支持“检查”按钮触发判断。
-  - 针对有余数除法，设计“商”与“余数”双输入框校验。
-- 🏆 **游戏化激励**：
-  - **星星能量槽**：根据正确率实时增长。
-  - **即时音效**：答对与答错拥有不同的音频反馈。
-- 🖨️ **打印友好**：一键生成整洁的练习卷预览，支持 A4 纸打印。
+        .card {
+            background: var(--card-bg); border-radius: 25px; padding: 25px; box-shadow: 0 8px 0 #E2EAF0;
+            display: flex; flex-direction: column; align-items: center; border: 4px solid transparent; transition: 0.2s;
+        }
+        .correct-card { border-color: var(--correct); background: #F2FFF7; }
+        .wrong-card { border-color: var(--error); background: #FFF5F5; }
 
-## 📸 效果展示
+        /* 通用表达式 */
+        .expression { font-size: 26px; font-weight: 800; margin-bottom: 15px; text-align: center; }
 
-*建议在此处上传一张你的网页截图*
+        /* 加/减/乘 竖式 */
+        .v-box { display: inline-grid; grid-template-columns: 40px 1fr; font-size: 35px; text-align: right; width: 140px; font-family: 'Courier New'; }
+        .v-line { grid-column: 1/span 2; border-bottom: 4px solid #333; margin: 5px 0 10px 0; }
 
-- **可爱 UI**：采用糖果色调，降低孩子对数学的畏难心理。
-- **交互反馈**：正确显示绿色星星，错误显示正确答案。
+        /* 除法竖式专用格式 (厂字型) */
+        .v-div-container { display: flex; align-items: flex-end; font-size: 35px; font-family: 'Courier New'; margin-bottom: 15px; }
+        .v-div-divisor { padding-right: 8px; border-right: 3px solid #333; }
+        .v-div-dividend { padding-left: 10px; border-top: 3px solid #333; border-top-left-radius: 12px; }
 
-## 🚀 快速开始
+        /* 输入系统 */
+        .input-group { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        input[type="text"] { width: 90px; padding: 10px; font-size: 22px; border: 3px solid #EEE; border-radius: 12px; text-align: center; outline: none; }
+        .rem-input { width: 70px !important; border-color: var(--accent) !important; }
 
-### 在线体验
-您可以直接通过以下链接访问（如果你开启了 GitHub Pages）：
-`https://yourusername.github.io/repository-name/`
+        .btn-check {
+            background: var(--primary); color: white; border: none; padding: 10px 25px;
+            border-radius: 15px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 0 #E55B5B;
+        }
 
-### 本地运行
-1. 克隆本项目：
-   ```bash
-   git clone https://github.com/yourusername/math-adventure.git
+        /* 分数渲染 */
+        .frac { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; margin: 0 5px; font-size: 20px; }
+        .frac-line { border-top: 3px solid #333; width: 100%; margin: 2px 0; }
+
+        .feedback { font-size: 14px; font-weight: bold; margin-top: 10px; min-height: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="selectors">
+        <select id="semester-sel" onchange="loadTopics()">
+            <option value="G1_UP">一年级上</option><option value="G1_DOWN">一年级下</option>
+            <option value="G2_UP">二年级上</option><option value="G2_DOWN">二年级下</option>
+            <option value="G3_UP">三年级上</option><option value="G3_DOWN">三年级下</option>
+            <option value="G4_UP">四年级上</option><option value="G4_DOWN">四年级下</option>
+            <option value="G5_UP">五年级上</option><option value="G5_DOWN">五年级下</option>
+            <option value="G6_UP">六年级上</option><option value="G6_DOWN">六年级下</option>
+        </select>
+        <select id="topic-sel" onchange="initExercise()"></select>
+    </div>
+    <div id="progress-text" style="font-weight: bold; color: var(--primary);">进度: 0/12</div>
+    <button class="btn-check" style="background:var(--secondary); box-shadow:0 4px 0 #3DBDB4" onclick="initExercise()">换一批</button>
+</div>
+
+<div id="exercise-area" class="grid"></div>
+
+<script>
+const DB = {
+    G1_UP: [{n:"20以内加减", t:"basic", r:[5,20]}],
+    G1_DOWN: [{n:"100以内不进位", t:"basic", r:[10,99]}],
+    G2_UP: [{n:"100以内竖式", t:"v_addsub", r:[20,99]}, {n:"乘法口诀", t:"mul_99"}],
+    G2_DOWN: [{n:"表内除法", t:"div_99"}, {n:"有余数除法", t:"div_rem"}],
+    G3_UP: [{n:"万以内竖式", t:"v_addsub", r:[1000,9999]}, {n:"多位数乘一位数", t:"v_mul", r1:[100,500], r2:[2,9]}],
+    G3_DOWN: [{n:"两位数乘两位数", t:"v_mul", r1:[11,99], r2:[11,50]}, {n:"简单小数加减", t:"dec_add"}],
+    G4_UP: [{n:"三位数乘两位数", t:"v_mul", r1:[100,400], r2:[10,30]}, {n:"大数除法竖式", t:"v_div", r1:[200,900], r2:[11,30]}],
+    G4_DOWN: [{n:"小数进位加减", t:"dec_add"}, {n:"运算定律简算", t:"law"}],
+    G5_UP: [{n:"小数乘法", t:"dec_mul"}, {n:"简易方程", t:"eqn"}],
+    G5_DOWN: [{n:"异分母分数加减", t:"frac_add"}],
+    G6_UP: [{n:"分数乘法", t:"frac_mul"}, {n:"分数除法", t:"frac_div"}],
+    G6_DOWN: [{n:"比例计算", t:"ratio"}]
+};
+
+const Gen = {
+    rand(min, max) { return Math.floor(Math.random()*(max-min+1))+min; },
+    
+    get(topic) {
+        let n1, n2, sym, ans, style='h', html=null, isRem=false, ansRem=0;
+        
+        switch(topic.t) {
+            case 'basic':
+                n1 = this.rand(topic.r[0], topic.r[1]); n2 = this.rand(2, n1);
+                sym = Math.random()>0.5?'+':'-'; ans = eval(`${n1}${sym}${n2}`); break;
+            case 'v_addsub':
+                n1 = this.rand(topic.r[0], topic.r[1]); n2 = this.rand(topic.r[0], n1);
+                sym = Math.random()>0.5?'+':'-'; ans = eval(`${n1}${sym}${n2}`); style='v'; break;
+            case 'mul_99':
+                n1 = this.rand(2,9); n2 = this.rand(2,9); sym='×'; ans=n1*n2; break;
+            case 'div_99':
+                n2 = this.rand(2,9); ans = this.rand(2,9); n1=n2*ans; sym='÷'; break;
+            case 'div_rem':
+                n2 = this.rand(3,9); ans = this.rand(2,9); ansRem = this.rand(1, n2-1);
+                n1 = n2*ans+ansRem; sym='÷'; isRem=true; break;
+            case 'v_mul':
+                n1 = this.rand(topic.r1[0], topic.r1[1]); n2 = this.rand(topic.r2[0], topic.r2[1]);
+                sym='×'; ans=n1*n2; style='v'; break;
+            case 'v_div':
+                n2 = this.rand(topic.r2[0], topic.r2[1]); ans = this.rand(10, 30); ansRem = this.rand(0, n2-1);
+                n1 = n2*ans + ansRem; style='v_div'; isRem = true; break;
+            case 'dec_add':
+                n1 = (this.rand(10, 100)/10).toFixed(1); n2 = (this.rand(5, 50)/10).toFixed(1);
+                sym='+'; ans = (parseFloat(n1)+parseFloat(n2)).toFixed(1); break;
+            case 'dec_mul':
+                n1 = (this.rand(11, 40)/10).toFixed(1); n2 = (this.rand(11, 30)/10).toFixed(1);
+                sym='×'; ans = (n1*n2).toFixed(2); break;
+            case 'law':
+                n1 = 25; n2 = this.rand(3,9); html = `${n1} × ${n2} × 4`; ans = n1*n2*4; break;
+            case 'eqn':
+                ans = this.rand(2,20); n2 = this.rand(1,10); html = `x + ${n2} = ${ans+n2}`; break;
+            case 'frac_add':
+                n1=this.rand(2,5); n2=this.rand(2,5); html=`<div class="frac"><span>1</span><div class="frac-line"></div><span>${n1}</span></div> + <div class="frac"><span>1</span><div class="frac-line"></div><span>${n2}</span></div>`;
+                ans=`${n1+n2}/${n1*n2}`; break;
+            case 'frac_mul':
+                n1=this.rand(1,5); n2=this.rand(1,5); let d1=this.rand(2,6); let d2=this.rand(2,6);
+                html=`<div class="frac"><span>${n1}</span><div class="frac-line"></div><span>${d1}</span></div> × <div class="frac"><span>${n2}</span><div class="frac-line"></div><span>${d2}</span></div>`;
+                ans=`${n1*n2}/${d1*d2}`; break;
+            case 'frac_div':
+                n1=this.rand(1,5); n2=this.rand(1,5); d1=this.rand(2,6); d2=this.rand(2,6);
+                html=`<div class="frac"><span>${n1}</span><div class="frac-line"></div><span>${d1}</span></div> ÷ <div class="frac"><span>${n2}</span><div class="frac-line"></div><span>${d2}</span></div>`;
+                ans=`${n1*d2}/${d1*n2}`; break;
+            case 'ratio':
+                n1=this.rand(2,5); html = `x : ${n1*2} = 3 : 2`; ans = n1*3; break;
+        }
+        return { n1, n2, sym, ans, style, html, isRem, ansRem };
+    }
+};
+
+let solved = 0;
+
+function loadTopics() {
+    const sem = document.getElementById('semester-sel').value;
+    const topicSel = document.getElementById('topic-sel');
+    topicSel.innerHTML = DB[sem].map((t, i) => `<option value='${i}'>${t.n}</option>`).join('');
+    initExercise();
+}
+
+function initExercise() {
+    solved = 0; updateProgress();
+    const sem = document.getElementById('semester-sel').value;
+    const idx = document.getElementById('topic-sel').value;
+    const area = document.getElementById('exercise-area');
+    area.innerHTML = '';
+    for(let i=0; i<12; i++) {
+        area.appendChild(createCard(Gen.get(DB[sem][idx])));
+    }
+}
+
+function createCard(q) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    let ui = "";
+
+    if(q.html) { ui = `<div class="expression">${q.html}</div>`; }
+    else if(q.style === 'v') {
+        ui = `<div class="v-box"><div style="grid-column:2; font-size:12px; color:#CCC">. .</div><div></div><div>${q.n1}</div><div style="text-align:left">${q.sym}</div><div>${q.n2}</div><div class="v-line"></div></div>`;
+    } 
+    else if(q.style === 'v_div') {
+        ui = `<div class="v-div-container"><div class="v-div-divisor">${q.n2}</div><div class="v-div-dividend">${q.n1}</div></div>`;
+    }
+    else {
+        ui = `<div class="expression">${q.n1} ${q.sym} ${q.n2} = </div>`;
+    }
+
+    let inputs = `<div class="input-group">`;
+    if(q.isRem) {
+        inputs += `<input type="text" class="q-in" placeholder="商"> <span>...</span> <input type="text" class="r-in rem-input" placeholder="余">`;
+    } else {
+        inputs += `<input type="text" class="main-in" placeholder="?">`;
+    }
+    inputs += `</div><button class="btn-check" onclick="verify(this, '${q.ans}', ${q.ansRem})">检查</button><div class="feedback"></div>`;
+    
+    card.innerHTML = ui + inputs;
+    return card;
+}
+
+function verify(btn, correct, correctRem) {
+    const card = btn.closest('.card');
+    const feedback = card.querySelector('.feedback');
+    let isRight = false;
+
+    if(card.querySelector('.q-in')) {
+        const qVal = card.querySelector('.q-in').value.trim();
+        const rVal = card.querySelector('.r-in').value.trim() || "0";
+        if(qVal == correct && rVal == correctRem) isRight = true;
+    } else {
+        const val = card.querySelector('.main-in').value.trim();
+        if(val == correct) isRight = true;
+    }
+
+    if(isRight) {
+        card.className = 'card correct-card';
+        feedback.innerHTML = "🌟 正确！"; feedback.style.color = "var(--correct)";
+        btn.disabled = true; solved++; updateProgress();
+    } else {
+        card.className = 'card wrong-card';
+        feedback.innerHTML = `❌ 答案: ${correct}${correctRem > 0 ? ' 余 '+correctRem : ''}`;
+        feedback.style.color = "var(--error)";
+    }
+}
+
+function updateProgress() { document.getElementById('progress-text').innerText = `进度: ${solved}/12`; }
+
+window.onload = loadTopics;
+</script>
+</body>
+</html>
